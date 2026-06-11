@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Iklim Papua 3D — Papua Climate 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-1:#eef4e8;
+    --bg-2:#dde8d2;
+    --ink:#1f2419;
+    --ink-soft:#52573e;
+    --paper:#fbfaf3;
+    --forest:#2d6a3e;
+    --forest-deep:#1a4d2e;
+    --warm:#e8732a;
+    --hot:#d63d1f;
+    --cool:#3a8bc4;
+    --bare:#c89968;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{
+    font-family:'Fraunces', Georgia, serif;
+    color:var(--ink);
+    background:linear-gradient(180deg, #cfe5f4, #e8efd8);
+    height:100vh;width:100vw;
+    position:relative;
+  }
+
+  /* Loading overlay */
+  #loading{
+    position:absolute;inset:0;z-index:100;
+    background:linear-gradient(180deg, #cfe5f4, #e8efd8);
+    display:flex;align-items:center;justify-content:center;flex-direction:column;
+    transition:opacity .6s ease;gap:12px;
+  }
+  #loading.hidden{opacity:0;pointer-events:none}
+  #loading h2{
+    font-family:'Fraunces',serif;font-weight:800;font-size:28px;color:var(--forest-deep);
+    font-variation-settings:"opsz" 144;letter-spacing:-0.02em;
+  }
+  #loading p{
+    font-family:'JetBrains Mono',monospace;font-size:11px;
+    letter-spacing:0.18em;text-transform:uppercase;color:var(--ink-soft);
+  }
+  .spinner{
+    width:36px;height:36px;border-radius:50%;
+    border:3px solid rgba(31,36,25,0.15);
+    border-top-color:var(--forest);
+    animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* 3D canvas */
+  #scene{
+    position:absolute;inset:0;width:100%;height:100%;
+    z-index:1;display:block;
+  }
+
+  /* Top bar */
+  .topbar{
+    position:absolute;top:14px;left:14px;right:14px;z-index:10;
+    display:flex;justify-content:space-between;align-items:flex-start;
+    pointer-events:none;gap:12px;flex-wrap:wrap;
+  }
+  .title-card{
+    background:rgba(251,250,243,0.92);
+    border:1.5px solid var(--ink);
+    border-radius:14px;
+    padding:10px 16px;
+    box-shadow:4px 4px 0 var(--ink);
+    pointer-events:auto;backdrop-filter:blur(6px);
+  }
+  .title-card h1{
+    font-family:'Fraunces',serif;font-weight:800;
+    font-size:clamp(18px,2.4vw,26px);
+    line-height:1;letter-spacing:-0.02em;
+    font-variation-settings:"opsz" 144;
+  }
+  .title-card h1 em{font-style:italic;color:var(--forest)}
+  .title-card h1 .accent{color:var(--hot)}
+  .title-card .sub{
+    font-family:'JetBrains Mono',monospace;font-size:9px;
+    letter-spacing:0.2em;text-transform:uppercase;
+    color:var(--ink-soft);margin-top:4px;
+  }
+
+  .lang-toggle{
+    pointer-events:auto;
+    display:flex;border:1.5px solid var(--ink);border-radius:10px;
+    overflow:hidden;background:var(--paper);
+    box-shadow:3px 3px 0 var(--ink);
+  }
+  .lang-toggle button{
+    background:transparent;border:none;
+    padding:7px 14px;cursor:pointer;
+    font-family:'JetBrains Mono',monospace;font-size:10px;
+    letter-spacing:0.2em;text-transform:uppercase;color:var(--ink);
+    border-right:1.5px solid var(--ink);
+  }
+  .lang-toggle button:last-child{border-right:none}
+  .lang-toggle button.active{background:var(--ink);color:var(--paper)}
+
+  /* Controls panel (bottom-left) */
+  .controls{
+    position:absolute;bottom:14px;left:14px;z-index:10;
+    background:rgba(251,250,243,0.92);
+    border:1.5px solid var(--ink);
+    border-radius:14px;
+    padding:14px;
+    box-shadow:4px 4px 0 var(--ink);
+    backdrop-filter:blur(6px);
+    width:300px;max-width:calc(100vw - 28px);
+  }
+  .controls h2{
+    font-family:'JetBrains Mono',monospace;font-size:10px;
+    letter-spacing:0.2em;text-transform:uppercase;color:var(--ink-soft);
+    margin-bottom:10px;display:flex;align-items:center;gap:6px;
+  }
+  .controls h2::before{
+    content:"";width:7px;height:7px;background:var(--forest);
+    border:1.2px solid var(--ink);border-radius:50%;
+  }
+  .ctrl{
+    background:rgba(255,255,255,0.7);
+    border:1.2px solid rgba(31,36,25,0.5);border-radius:8px;
+    padding:8px 10px;margin-bottom:8px;
+  }
+  .ctrl label{
+    font-family:'JetBrains Mono',monospace;font-size:10px;
+    letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-soft);
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .ctrl label span{color:var(--ink);font-weight:600}
+  input[type="range"]{
+    -webkit-appearance:none;appearance:none;width:100%;height:5px;
+    background:linear-gradient(90deg,var(--forest),var(--hot));
+    border:1px solid var(--ink);border-radius:999px;outline:none;margin-top:6px;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;
+    width:16px;height:16px;border-radius:50%;
+    background:var(--paper);border:1.4px solid var(--ink);
+    box-shadow:1.5px 1.5px 0 var(--ink);cursor:grab;
+  }
+  input[type="range"]::-moz-range-thumb{
+    width:16px;height:16px;border-radius:50%;
+    background:var(--paper);border:1.4px solid var(--ink);cursor:grab;
+  }
+
+  .btns{display:flex;gap:6px;margin-top:6px}
+  .btn{
+    flex:1;
+    font-family:'JetBrains Mono',monospace;font-size:9px;
+    letter-spacing:0.14em;text-transform:uppercase;
+    background:var(--paper);border:1.4px solid var(--ink);border-radius:7px;
+    padding:7px 8px;cursor:pointer;
+    box-shadow:2px 2px 0 var(--ink);color:var(--ink);
+    transition:transform .08s ease,box-shadow .08s ease;
+  }
+  .btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--ink)}
+  .btn:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--ink)}
+  .btn.eco{background:var(--forest);color:var(--paper)}
+  .btn.danger{background:var(--hot);color:var(--paper)}
+
+  .seg{
+    display:flex;border:1.4px solid var(--ink);border-radius:7px;overflow:hidden;
+    margin-top:6px;box-shadow:2px 2px 0 var(--ink);
+  }
+  .seg button{
+    flex:1;background:var(--paper);border:none;border-right:1.4px solid var(--ink);
+    padding:6px 4px;font-family:'JetBrains Mono',monospace;font-size:9px;
+    letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;color:var(--ink);
+  }
+  .seg button:last-child{border-right:none}
+  .seg button.active{background:var(--ink);color:var(--paper)}
+
+  /* Dashboard panel (bottom-right) */
+  .dashboard{
+    position:absolute;bottom:14px;right:14px;z-index:10;
+    background:rgba(251,250,243,0.92);
+    border:1.5px solid var(--ink);
+    border-radius:14px;
+    padding:14px;
+    box-shadow:4px 4px 0 var(--ink);
+    backdrop-filter:blur(6px);
+    width:280px;max-width:calc(100vw - 28px);
+  }
+  .dashboard h2{
+    font-family:'JetBrains Mono',monospace;font-size:10px;
+    letter-spacing:0.2em;text-transform:uppercase;color:var(--ink-soft);
+    margin-bottom:10px;display:flex;align-items:center;gap:6px;
+  }
+  .dashboard h2::before{
+    content:"";width:7px;height:7px;background:var(--hot);
+    border:1.2px solid var(--ink);border-radius:50%;
+  }
+  .dash-row{
+    display:flex;justify-content:space-between;align-items:baseline;
+    padding:6px 0;border-bottom:1px dashed rgba(31,36,25,0.2);
+  }
+  .dash-row:last-child{border-bottom:none}
+  .dash-row .k{
+    font-family:'JetBrains Mono',monospace;font-size:9px;
+    letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-soft);
+  }
+  .dash-row .v{
+    font-family:'Fraunces',serif;font-weight:800;font-size:18px;
+    font-variation-settings:"opsz" 144;
+    display:flex;align-items:baseline;gap:3px;
+  }
+  .dash-row .v small{
+    font-size:9px;font-family:'JetBrains Mono',monospace;font-weight:400;
+    color:var(--ink-soft);
+  }
+  .dash-row .delta{
+    font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:600;
+    margin-left:5px;padding:1px 5px;border-radius:4px;border:1px solid currentColor;
+  }
+  .delta.up{color:var(--hot)}
+  .delta.down{color:var(--forest)}
+  .delta.zero{color:var(--ink-soft)}
+
+  /* Energy bar (compact) */
+  .energy{
+    margin-top:10px;padding-top:8px;
+    border-top:1.2px dashed rgba(31,36,25,0.3);
+  }
+  .energy h4{
+    font-family:'JetBrains Mono',monospace;font-size:9px;
+    letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  .energy-bar{
+    display:flex;height:18px;border:1.2px solid var(--ink);border-radius:5px;
+    overflow:hidden;margin-bottom:5px;
+  }
+  .energy-bar > div{
+    transition:flex .4s ease;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:600;
+    color:white;text-shadow:0 1px 0 rgba(0,0,0,0.3);
+    min-width:0;overflow:hidden;
+  }
+  .e-reflect{background:#9aa8b8}
+  .e-evap{background:#5fa8d8}
+  .e-sensible{background:var(--warm)}
+  .e-stored{background:var(--hot)}
+  .energy-legend{
+    display:grid;grid-template-columns:1fr 1fr;gap:3px;
+    font-family:'JetBrains Mono',monospace;font-size:8px;
+    color:var(--ink-soft);letter-spacing:0.05em;
+  }
+  .energy-legend i{
+    display:inline-block;width:8px;height:8px;border-radius:1px;
+    margin-right:4px;vertical-align:middle;
+  }
+
+  /* Hint pill bottom-center */
+  .hint{
+    position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
+    z-index:9;
+    background:rgba(31,36,25,0.85);color:var(--paper);
+    border:1.2px solid var(--ink);border-radius:999px;
+    padding:7px 14px;
+    font-family:'JetBrains Mono',monospace;font-size:9px;
+    letter-spacing:0.18em;text-transform:uppercase;
+    backdrop-filter:blur(4px);
+  }
+  @media (max-width:760px){
+    .hint{display:none}
+  }
+
+  /* In-3D label badges (forest / cleared) */
+  .label-3d{
+    position:absolute;z-index:5;pointer-events:none;
+    font-family:'JetBrains Mono',monospace;font-size:10px;
+    background:rgba(251,250,243,0.95);
+    border:1.4px solid var(--ink);border-radius:6px;
+    padding:4px 8px;font-weight:600;
+    letter-spacing:0.12em;text-transform:uppercase;
+    transform:translate(-50%, -100%);
+    transition:opacity .3s;
+    box-shadow:2px 2px 0 var(--ink);
+  }
+  .label-3d.forest{color:var(--forest-deep)}
+  .label-3d.bare{color:#993515}
+  .label-3d .temp{
+    font-family:'Fraunces',serif;font-size:14px;font-weight:800;
+    font-variation-settings:"opsz" 144;
+    display:block;text-transform:none;letter-spacing:0;
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <h2 data-id="Memuat dunia 3D…" data-en="Loading 3D world…">Memuat dunia 3D…</h2>
+  <p data-id="Pulau Papua sedang disusun" data-en="Building Papua island">Pulau Papua sedang disusun</p>
+</div>
+
+<canvas id="scene"></canvas>
+
+<div class="topbar">
+  <div class="title-card">
+    <h1>
+      <span data-id-html='Iklim <em>Papua</em> 3D' data-en-html='<em>Papua</em> Climate 3D'>Iklim <em>Papua</em> 3D</span>
+    </h1>
+    <div class="sub" data-id="Termodinamika · Albedo · Karbon · Evapotranspirasi" data-en="Thermodynamics · Albedo · Carbon · Evapotranspiration">Termodinamika · Albedo · Karbon · Evapotranspirasi</div>
+  </div>
+
+  <div class="lang-toggle">
+    <button id="langID" class="active">ID</button>
+    <button id="langEN">EN</button>
+  </div>
+</div>
+
+<div id="forestLabel" class="label-3d forest">
+  <span data-id="Hutan" data-en="Forest">Hutan</span>
+  <span class="temp" id="forestTemp">26.0°C</span>
+</div>
+
+<div id="bareLabel" class="label-3d bare">
+  <span data-id="Lahan Gundul" data-en="Cleared Land">Lahan Gundul</span>
+  <span class="temp" id="bareTemp">26.0°C</span>
+</div>
+
+<div class="controls">
+  <h2 data-id="Kontrol Simulasi" data-en="Simulation Controls">Kontrol Simulasi</h2>
+
+  <div class="ctrl">
+    <label><span data-id="Deforestasi" data-en="Deforestation">Deforestasi</span> <span id="defVal">0%</span></label>
+    <input type="range" id="def" min="0" max="100" value="0" step="1"/>
+  </div>
+
+  <div class="ctrl">
+    <label><span data-id="Intensitas Matahari" data-en="Solar Intensity">Intensitas Matahari</span> <span id="sunVal">100%</span></label>
+    <input type="range" id="sun" min="60" max="120" value="100" step="1"/>
+  </div>
+
+  <div class="ctrl">
+    <label data-id="Mode Visualisasi" data-en="Visualization Mode">Mode Visualisasi</label>
+    <div class="seg" id="modeSeg">
+      <button data-mode="all" class="active" data-id="Semua" data-en="All">Semua</button>
+      <button data-mode="water" data-id="Air" data-en="Water">Air</button>
+      <button data-mode="carbon" data-id="Karbon" data-en="Carbon">Karbon</button>
+    </div>
+  </div>
+
+  <div class="btns">
+    <button class="btn eco" id="scnPristine" data-id="Lestari" data-en="Pristine">Lestari</button>
+    <button class="btn danger" id="scnDeforest" data-id="Tebang" data-en="Clear-cut">Tebang</button>
+    <button class="btn" id="resetCam" data-id="Reset Kamera" data-en="Reset Camera">Reset Kamera</button>
+  </div>
+</div>
+
+<div class="dashboard">
+  <h2 data-id="Dampak Iklim · Live" data-en="Climate Impact · Live">Dampak Iklim · Live</h2>
+
+  <div class="dash-row">
+    <span class="k" data-id="Suhu Rata-rata" data-en="Avg Temperature">Suhu Rata-rata</span>
+    <span class="v"><span id="avgTemp">26.0</span><small>°C</small><span class="delta zero" id="dTemp">+0.0°</span></span>
+  </div>
+  <div class="dash-row">
+    <span class="k" data-id="Curah Hujan" data-en="Rainfall">Curah Hujan</span>
+    <span class="v"><span id="rainfall">100</span><small>%</small><span class="delta zero" id="dRain">0%</span></span>
+  </div>
+  <div class="dash-row">
+    <span class="k" data-id="Karbon Tersimpan" data-en="Stored Carbon">Karbon Tersimpan</span>
+    <span class="v"><span id="carbon">100</span><small>%</small><span class="delta zero" id="dCarbon">0%</span></span>
+  </div>
+  <div class="dash-row">
+    <span class="k" data-id="Biodiversitas" data-en="Biodiversity">Biodiversitas</span>
+    <span class="v"><span id="biodiv">100</span><small>%</small><span class="delta zero" id="dBio">0%</span></span>
+  </div>
+
+  <div class="energy">
+    <h4 data-id="Neraca Energi Permukaan" data-en="Surface Energy Balance">Neraca Energi Permukaan</h4>
+    <div class="energy-bar" id="energyBar">
+      <div class="e-reflect" id="eR" style="flex:12"><span id="eRv">12%</span></div>
+      <div class="e-evap" id="eE" style="flex:55"><span id="eEv">55%</span></div>
+      <div class="e-sensible" id="eS" style="flex:25"><span id="eSv">25%</span></div>
+      <div class="e-stored" id="eSt" style="flex:8"><span id="eStv">8%</span></div>
+    </div>
+    <div class="energy-legend">
+      <span><i style="background:#9aa8b8"></i><span data-id="Pantulan" data-en="Reflected">Pantulan</span></span>
+      <span><i style="background:#5fa8d8"></i><span data-id="Penguapan" data-en="Evaporation">Penguapan</span></span>
+      <span><i style="background:#e8732a"></i><span data-id="Pemanasan udara" data-en="Heats air">Pemanasan udara</span></span>
+      <span><i style="background:#d63d1f"></i><span data-id="Pemanasan tanah" data-en="Heats surface">Pemanasan tanah</span></span>
+    </div>
+  </div>
+</div>
+
+<div class="hint" id="hint" data-id="◆ Geret untuk memutar · Roda mouse untuk zoom · Klik kanan untuk geser" data-en="◆ Drag to rotate · Scroll to zoom · Right-click to pan">◆ Geret untuk memutar · Roda mouse untuk zoom · Klik kanan untuk geser</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =========================================================
+   THREE.JS SCENE — PAPUA CLIMATE SIMULATION
+========================================================= */
+
+let scene, camera, renderer, animId;
+let terrain, forestGroup, bareGroup, stumpGroup, sunMesh, sunLight, ambientLight;
+let cloudGroup, vaporParticles, co2Particles, albedoParticles;
+let forestMarker, bareMarker;
+
+const TREE_COUNT = 80;
+const STUMP_COUNT = 50;
+const trees = [];
+const stumps = [];
+
+let deforest = 0;
+let sunIntensity = 1.0;
+let mode = 'all';
+let lang = 'id';
+
+let cameraTarget = new THREE.Vector3(0, 0, 0);
+let cameraTheta = Math.PI * 0.5;
+let cameraPhi = Math.PI * 0.32;
+let cameraRadius = 75;
+const DEFAULT_CAM = { theta: Math.PI*0.5, phi: Math.PI*0.32, radius: 75 };
+
+const BASE = { T: 26 };
+
+function init() {
+  scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0xc8e0e8, 100, 200);
+
+  camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 500);
+  updateCameraPosition();
+
+  const canvas = document.getElementById('scene');
+  renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:false });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+  renderer.setClearColor(0xc8e0e8);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  buildLighting();
+  buildSky();
+  buildTerrain();
+  buildOcean();
+  buildForestArea();
+  buildBareArea();
+  buildClouds();
+  initParticles();
+  setupCameraControls();
+  setupLabels();
+
+  window.addEventListener('resize', onResize);
+
+  setTimeout(()=>{
+    document.getElementById('loading').classList.add('hidden');
+  }, 400);
+
+  animate();
+}
+
+function buildLighting() {
+  ambientLight = new THREE.AmbientLight(0xfff4e0, 0.55);
+  scene.add(ambientLight);
+
+  sunLight = new THREE.DirectionalLight(0xfff0c8, 1.1);
+  sunLight.position.set(40, 60, 30);
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.set(1024, 1024);
+  sunLight.shadow.camera.left = -60;
+  sunLight.shadow.camera.right = 60;
+  sunLight.shadow.camera.top = 60;
+  sunLight.shadow.camera.bottom = -60;
+  sunLight.shadow.camera.near = 0.5;
+  sunLight.shadow.camera.far = 200;
+  scene.add(sunLight);
+
+  const skyHemi = new THREE.HemisphereLight(0xb8d4e8, 0x4a6038, 0.4);
+  scene.add(skyHemi);
+
+  const sunGeo = new THREE.SphereGeometry(4, 24, 24);
+  const sunMat = new THREE.MeshBasicMaterial({ color: 0xffe07a });
+  sunMesh = new THREE.Mesh(sunGeo, sunMat);
+  sunMesh.position.copy(sunLight.position);
+  scene.add(sunMesh);
+
+  const glowGeo = new THREE.SphereGeometry(7, 24, 24);
+  const glowMat = new THREE.MeshBasicMaterial({ color: 0xffd86b, transparent:true, opacity:0.25 });
+  const glow = new THREE.Mesh(glowGeo, glowMat);
+  glow.position.copy(sunLight.position);
+  scene.add(glow);
+  sunMesh.userData.glow = glow;
+}
+
+function buildSky() {
+  const skyGeo = new THREE.SphereGeometry(220, 32, 24);
+  const skyMat = new THREE.ShaderMaterial({
+    uniforms: {
+      topColor: { value: new THREE.Color(0x6ea4d4) },
+      bottomColor: { value: new THREE.Color(0xe8e0c8) },
+    },
+    vertexShader: `
+      varying vec3 vWorldPos;
+      void main() {
+        vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 topColor;
+      uniform vec3 bottomColor;
+      varying vec3 vWorldPos;
+      void main() {
+        float h = normalize(vWorldPos).y;
+        float t = smoothstep(0.0, 0.6, h);
+        gl_FragColor = vec4(mix(bottomColor, topColor, t), 1.0);
+      }
+    `,
+    side: THREE.BackSide,
+  });
+  const sky = new THREE.Mesh(skyGeo, skyMat);
+  scene.add(sky);
+}
+
+function buildTerrain() {
+  const W = 100, D = 60, SEG = 80;
+  const geo = new THREE.PlaneGeometry(W, D, SEG, SEG/2);
+  geo.rotateX(-Math.PI/2);
+
+  const pos = geo.attributes.position;
+  const colors = [];
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    const xn = x / (W/2);
+    const zn = z / (D/2);
+
+    const islandShape = Math.max(0, 1 - (xn*xn*0.7 + zn*zn*1.5));
+    let h = islandShape * 4;
+
+    const distToCenter = Math.abs(zn);
+    const mountainRange = Math.exp(-distToCenter*distToCenter*4) * islandShape;
+    h += mountainRange * 6;
+
+    const peak1 = Math.exp(-((xn-0.0)*(xn-0.0)*40 + (zn+0.05)*(zn+0.05)*30)) * 4;
+    const peak2 = Math.exp(-((xn+0.2)*(xn+0.2)*40 + (zn-0.05)*(zn-0.05)*30)) * 3.5;
+    h += peak1 + peak2;
+
+    h += (Math.sin(x*0.4) + Math.cos(z*0.5)) * 0.15 * islandShape;
+
+    pos.setY(i, h);
+
+    let r, g, b;
+    if (h < 0.05) {
+      r = 0.45; g = 0.6; b = 0.4;
+    } else if (h < 1.5) {
+      r = 0.32; g = 0.5; b = 0.28;
+    } else if (h < 5) {
+      r = 0.4; g = 0.42; b = 0.32;
+    } else if (h < 7.5) {
+      r = 0.55; g = 0.55; b = 0.5;
+    } else {
+      r = 0.95; g = 0.95; b = 0.95;
+    }
+
+    if (xn > 0.05 && xn < 0.45 && Math.abs(zn) < 0.4 && h > 0.1 && h < 4) {
+      r = 0.18; g = 0.42; b = 0.24;
+    }
+    if (xn > -0.45 && xn < -0.05 && Math.abs(zn) < 0.4 && h > 0.1 && h < 4) {
+      r = 0.78; g = 0.6; b = 0.4;
+    }
+
+    colors.push(r, g, b);
+  }
+
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.computeVertexNormals();
+
+  const mat = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.85,
+    flatShading: true,
+  });
+
+  terrain = new THREE.Mesh(geo, mat);
+  terrain.receiveShadow = true;
+  terrain.userData.W = W;
+  terrain.userData.D = D;
+  scene.add(terrain);
+}
+
+function getTerrainHeight(x, z) {
+  const W = 100, D = 60;
+  const xn = x / (W/2);
+  const zn = z / (D/2);
+  const islandShape = Math.max(0, 1 - (xn*xn*0.7 + zn*zn*1.5));
+  let h = islandShape * 4;
+  const distToCenter = Math.abs(zn);
+  h += Math.exp(-distToCenter*distToCenter*4) * islandShape * 6;
+  h += Math.exp(-((xn-0.0)*(xn-0.0)*40 + (zn+0.05)*(zn+0.05)*30)) * 4;
+  h += Math.exp(-((xn+0.2)*(xn+0.2)*40 + (zn-0.05)*(zn-0.05)*30)) * 3.5;
+  h += (Math.sin(x*0.4) + Math.cos(z*0.5)) * 0.15 * islandShape;
+  return h;
+}
+
+function buildOcean() {
+  const oceanGeo = new THREE.PlaneGeometry(300, 300);
+  oceanGeo.rotateX(-Math.PI/2);
+  const oceanMat = new THREE.MeshStandardMaterial({
+    color: 0x4a7fa8,
+    transparent: true,
+    opacity: 0.85,
+    roughness: 0.3,
+    metalness: 0.1,
+  });
+  const ocean = new THREE.Mesh(oceanGeo, oceanMat);
+  ocean.position.y = -0.05;
+  scene.add(ocean);
+}
+
+function makeTree(x, y, z, scale = 1) {
+  const group = new THREE.Group();
+
+  const trunkGeo = new THREE.CylinderGeometry(0.08, 0.12, 0.8, 6);
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3e1a, roughness: 0.9 });
+  const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+  trunk.position.y = 0.4;
+  trunk.castShadow = true;
+  group.add(trunk);
+
+  const foliageMat = new THREE.MeshStandardMaterial({ color: 0x2d6a3e, roughness: 0.85 });
+  const foliageMatDark = new THREE.MeshStandardMaterial({ color: 0x1a4d2e, roughness: 0.85 });
+
+  const cone1 = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.0, 8), foliageMat);
+  cone1.position.y = 1.0;
+  cone1.castShadow = true;
+  group.add(cone1);
+
+  const cone2 = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.9, 8), foliageMatDark);
+  cone2.position.y = 1.4;
+  cone2.castShadow = true;
+  group.add(cone2);
+
+  const cone3 = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.8, 8), foliageMat);
+  cone3.position.y = 1.7;
+  cone3.castShadow = true;
+  group.add(cone3);
+
+  group.position.set(x, y, z);
+  group.scale.setScalar(scale);
+  group.rotation.y = Math.random() * Math.PI * 2;
+  return group;
+}
+
+function makeStump(x, y, z) {
+  const group = new THREE.Group();
+  const stumpGeo = new THREE.CylinderGeometry(0.13, 0.16, 0.18, 8);
+  const stumpMat = new THREE.MeshStandardMaterial({ color: 0x6b4520, roughness: 0.95 });
+  const stump = new THREE.Mesh(stumpGeo, stumpMat);
+  stump.position.y = 0.09;
+  stump.castShadow = true;
+  group.add(stump);
+
+  const topGeo = new THREE.CircleGeometry(0.13, 8);
+  topGeo.rotateX(-Math.PI/2);
+  const topMat = new THREE.MeshStandardMaterial({ color: 0xb89066 });
+  const top = new THREE.Mesh(topGeo, topMat);
+  top.position.y = 0.181;
+  group.add(top);
+
+  group.position.set(x, y, z);
+  group.rotation.y = Math.random() * Math.PI * 2;
+  return group;
+}
+
+function buildForestArea() {
+  forestGroup = new THREE.Group();
+  scene.add(forestGroup);
+
+  const xMin = 5, xMax = 22, zMin = -12, zMax = 12;
+  for (let i = 0; i < TREE_COUNT; i++) {
+    const x = xMin + Math.random() * (xMax - xMin);
+    const z = zMin + Math.random() * (zMax - zMin);
+    const y = getTerrainHeight(x, z);
+    if (y < 0.3) continue;
+    const scale = 0.8 + Math.random() * 0.5;
+    const tree = makeTree(x, y, z, scale);
+    forestGroup.add(tree);
+    trees.push({ mesh: tree, x, y, z, baseScale: scale });
+  }
+}
+
+function buildBareArea() {
+  bareGroup = new THREE.Group();
+  scene.add(bareGroup);
+
+  const xMin = -22, xMax = -5, zMin = -12, zMax = 12;
+  const bareGeo = new THREE.PlaneGeometry(17, 24, 12, 12);
+  bareGeo.rotateX(-Math.PI/2);
+  const bpos = bareGeo.attributes.position;
+  for (let i = 0; i < bpos.count; i++) {
+    const lx = bpos.getX(i) - 13.5;
+    const lz = bpos.getZ(i);
+    bpos.setY(i, getTerrainHeight(lx, lz) + 0.02);
+  }
+  bareGeo.computeVertexNormals();
+  const bareMat = new THREE.MeshStandardMaterial({
+    color: 0xc89968,
+    roughness: 0.95,
+    transparent: true,
+    opacity: 0,
+  });
+  const barePatch = new THREE.Mesh(bareGeo, bareMat);
+  barePatch.position.set(-13.5, 0, 0);
+  barePatch.receiveShadow = true;
+  bareGroup.add(barePatch);
+  bareGroup.userData.patch = barePatch;
+
+  stumpGroup = new THREE.Group();
+  scene.add(stumpGroup);
+  for (let i = 0; i < STUMP_COUNT; i++) {
+    const x = xMin + Math.random() * (xMax - xMin);
+    const z = zMin + Math.random() * (zMax - zMin);
+    const y = getTerrainHeight(x, z);
+    if (y < 0.3) continue;
+    const stump = makeStump(x, y, z);
+    stump.scale.setScalar(0);
+    stumpGroup.add(stump);
+    stumps.push({ mesh: stump, x, y, z });
+  }
+}
+
+function buildClouds() {
+  cloudGroup = new THREE.Group();
+  scene.add(cloudGroup);
+
+  for (let i = 0; i < 12; i++) {
+    const cloud = new THREE.Group();
+    const cloudMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.85,
+      roughness: 1.0,
+    });
+    for (let j = 0; j < 4; j++) {
+      const puff = new THREE.Mesh(
+        new THREE.SphereGeometry(1 + Math.random()*0.6, 8, 6),
+        cloudMat
+      );
+      puff.position.set(j*1.4 - 2.1, Math.random()*0.4, Math.random()*0.6 - 0.3);
+      puff.scale.set(1, 0.6, 1);
+      cloud.add(puff);
+    }
+    const x = -50 + Math.random()*100;
+    const y = 14 + Math.random()*8;
+    const z = -30 + Math.random()*60;
+    cloud.position.set(x, y, z);
+    cloud.userData.driftSpeed = 0.02 + Math.random()*0.02;
+    cloud.userData.baseX = x;
+    cloudGroup.add(cloud);
+  }
+}
+
+function initParticles() {
+  const vaporGeo = new THREE.BufferGeometry();
+  const vaporPositions = new Float32Array(150 * 3);
+  const vaporLife = new Float32Array(150);
+  for (let i = 0; i < 150; i++) {
+    vaporPositions[i*3]     = 5 + Math.random()*17;
+    vaporPositions[i*3 + 1] = 0;
+    vaporPositions[i*3 + 2] = -12 + Math.random()*24;
+    vaporLife[i] = -1;
+  }
+  vaporGeo.setAttribute('position', new THREE.BufferAttribute(vaporPositions, 3));
+  const vaporMat = new THREE.PointsMaterial({
+    color: 0x7fc4ec,
+    size: 0.8,
+    transparent: true,
+    opacity: 0.7,
+    sizeAttenuation: true,
+  });
+  vaporParticles = new THREE.Points(vaporGeo, vaporMat);
+  vaporParticles.userData.life = vaporLife;
+  scene.add(vaporParticles);
+
+  const co2Geo = new THREE.BufferGeometry();
+  const co2Positions = new Float32Array(100 * 3);
+  const co2Life = new Float32Array(100);
+  const co2Color = new Float32Array(100 * 3);
+  for (let i = 0; i < 100; i++) {
+    co2Life[i] = -1;
+    co2Color[i*3] = 0.4;
+    co2Color[i*3+1] = 0.4;
+    co2Color[i*3+2] = 0.4;
+  }
+  co2Geo.setAttribute('position', new THREE.BufferAttribute(co2Positions, 3));
+  co2Geo.setAttribute('color', new THREE.BufferAttribute(co2Color, 3));
+  const co2Mat = new THREE.PointsMaterial({
+    size: 1.0,
+    transparent: true,
+    opacity: 0.85,
+    sizeAttenuation: true,
+    vertexColors: true,
+  });
+  co2Particles = new THREE.Points(co2Geo, co2Mat);
+  co2Particles.userData.life = co2Life;
+  co2Particles.userData.dirY = new Float32Array(100);
+  scene.add(co2Particles);
+
+  const albedoGeo = new THREE.BufferGeometry();
+  const albedoPositions = new Float32Array(80 * 3);
+  const albedoLife = new Float32Array(80);
+  for (let i = 0; i < 80; i++) albedoLife[i] = -1;
+  albedoGeo.setAttribute('position', new THREE.BufferAttribute(albedoPositions, 3));
+  const albedoMat = new THREE.PointsMaterial({
+    color: 0xffeb8a,
+    size: 0.6,
+    transparent: true,
+    opacity: 0.95,
+    sizeAttenuation: true,
+  });
+  albedoParticles = new THREE.Points(albedoGeo, albedoMat);
+  albedoParticles.userData.life = albedoLife;
+  scene.add(albedoParticles);
+}
+
+function spawnVapor() {
+  if (mode !== 'all' && mode !== 'water') return;
+  const rate = (1 - deforest) * 0.95 + 0.05;
+  if (Math.random() > rate * 0.4) return;
+  const positions = vaporParticles.geometry.attributes.position.array;
+  const lives = vaporParticles.userData.life;
+  for (let i = 0; i < 150; i++) {
+    if (lives[i] < 0) {
+      const x = 5 + Math.random()*17;
+      const z = -12 + Math.random()*24;
+      const y = getTerrainHeight(x, z) + 0.5;
+      positions[i*3] = x;
+      positions[i*3+1] = y;
+      positions[i*3+2] = z;
+      lives[i] = 1.0;
+      return;
+    }
+  }
+}
+
+function spawnCO2() {
+  if (mode !== 'all' && mode !== 'carbon') return;
+  const positions = co2Particles.geometry.attributes.position.array;
+  const colors = co2Particles.geometry.attributes.color.array;
+  const lives = co2Particles.userData.life;
+  const dirs = co2Particles.userData.dirY;
+
+  if ((1-deforest) > 0.1 && Math.random() < (1-deforest)*0.25) {
+    for (let i = 0; i < 100; i++) {
+      if (lives[i] < 0) {
+        const x = 5 + Math.random()*17;
+        const z = -12 + Math.random()*24;
+        positions[i*3] = x;
+        positions[i*3+1] = 14;
+        positions[i*3+2] = z;
+        colors[i*3] = 0.18; colors[i*3+1] = 0.42; colors[i*3+2] = 0.24;
+        dirs[i] = -1;
+        lives[i] = 1.0;
+        co2Particles.geometry.attributes.color.needsUpdate = true;
+        return;
+      }
+    }
+  }
+  if (deforest > 0.1 && Math.random() < deforest*0.4) {
+    for (let i = 0; i < 100; i++) {
+      if (lives[i] < 0) {
+        const x = -22 + Math.random()*17;
+        const z = -12 + Math.random()*24;
+        const y = getTerrainHeight(x, z) + 0.3;
+        positions[i*3] = x;
+        positions[i*3+1] = y;
+        positions[i*3+2] = z;
+        colors[i*3] = 0.42; colors[i*3+1] = 0.42; colors[i*3+2] = 0.42;
+        dirs[i] = 1;
+        lives[i] = 1.0;
+        co2Particles.geometry.attributes.color.needsUpdate = true;
+        return;
+      }
+    }
+  }
+}
+
+function spawnAlbedo() {
+  if (mode !== 'all') return;
+  if (deforest < 0.1) return;
+  if (Math.random() > deforest*0.5) return;
+  const positions = albedoParticles.geometry.attributes.position.array;
+  const lives = albedoParticles.userData.life;
+  for (let i = 0; i < 80; i++) {
+    if (lives[i] < 0) {
+      const x = -22 + Math.random()*17;
+      const z = -12 + Math.random()*24;
+      const y = getTerrainHeight(x, z) + 0.3;
+      positions[i*3] = x;
+      positions[i*3+1] = y;
+      positions[i*3+2] = z;
+      lives[i] = 1.0;
+      return;
+    }
+  }
+}
+
+function updateParticles(dt) {
+  const vp = vaporParticles.geometry.attributes.position.array;
+  const vl = vaporParticles.userData.life;
+  for (let i = 0; i < 150; i++) {
+    if (vl[i] > 0) {
+      vp[i*3+1] += dt * 1.5;
+      vp[i*3] += Math.sin(vl[i]*5)*dt*0.3;
+      vl[i] -= dt * 0.18;
+      if (vp[i*3+1] > 16) vl[i] = -1;
+    } else {
+      vp[i*3+1] = -1000;
+    }
+  }
+  vaporParticles.geometry.attributes.position.needsUpdate = true;
+  vaporParticles.material.opacity = (mode==='all' || mode==='water') ? 0.7 : 0;
+
+  const cp = co2Particles.geometry.attributes.position.array;
+  const cl = co2Particles.userData.life;
+  const cd = co2Particles.userData.dirY;
+  for (let i = 0; i < 100; i++) {
+    if (cl[i] > 0) {
+      cp[i*3+1] += cd[i] * dt * 2.0;
+      cp[i*3] += Math.sin(cl[i]*4)*dt*0.4;
+      cl[i] -= dt * 0.25;
+      if (cl[i] <= 0) cp[i*3+1] = -1000;
+    } else {
+      cp[i*3+1] = -1000;
+    }
+  }
+  co2Particles.geometry.attributes.position.needsUpdate = true;
+  co2Particles.material.opacity = (mode==='all' || mode==='carbon') ? 0.85 : 0;
+
+  const ap = albedoParticles.geometry.attributes.position.array;
+  const al = albedoParticles.userData.life;
+  for (let i = 0; i < 80; i++) {
+    if (al[i] > 0) {
+      ap[i*3+1] += dt * 6;
+      al[i] -= dt * 0.6;
+      if (al[i] <= 0) ap[i*3+1] = -1000;
+    } else {
+      ap[i*3+1] = -1000;
+    }
+  }
+  albedoParticles.geometry.attributes.position.needsUpdate = true;
+  albedoParticles.material.opacity = (mode==='all' && deforest > 0.1) ? 0.9 : 0;
+}
+
+function updateCameraPosition() {
+  const x = cameraTarget.x + cameraRadius * Math.sin(cameraPhi) * Math.cos(cameraTheta);
+  const y = cameraTarget.y + cameraRadius * Math.cos(cameraPhi);
+  const z = cameraTarget.z + cameraRadius * Math.sin(cameraPhi) * Math.sin(cameraTheta);
+  camera.position.set(x, y, z);
+  camera.lookAt(cameraTarget);
+}
+
+function setupCameraControls() {
+  const canvas = renderer.domElement;
+  let isDragging = false;
+  let isPanning = false;
+  let lastX = 0, lastY = 0;
+
+  canvas.addEventListener('mousedown', (e) => {
+    if (e.button === 0) isDragging = true;
+    if (e.button === 2) isPanning = true;
+    lastX = e.clientX; lastY = e.clientY;
+  });
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  canvas.addEventListener('mouseup', () => { isDragging = false; isPanning = false; });
+  canvas.addEventListener('mouseleave', () => { isDragging = false; isPanning = false; });
+  canvas.addEventListener('mousemove', (e) => {
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    if (isDragging) {
+      cameraTheta -= dx * 0.005;
+      cameraPhi = Math.max(0.1, Math.min(Math.PI*0.49, cameraPhi - dy * 0.005));
+      updateCameraPosition();
+    } else if (isPanning) {
+      const right = new THREE.Vector3();
+      camera.getWorldDirection(new THREE.Vector3());
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      right.crossVectors(camera.up, dir).normalize();
+      const up = new THREE.Vector3(0,1,0);
+      cameraTarget.add(right.multiplyScalar(dx * 0.05));
+      cameraTarget.add(up.multiplyScalar(dy * 0.05));
+      updateCameraPosition();
+    }
+    lastX = e.clientX; lastY = e.clientY;
+  });
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    cameraRadius = Math.max(20, Math.min(150, cameraRadius + e.deltaY * 0.05));
+    updateCameraPosition();
+  }, { passive: false });
+
+  let touchStartDist = 0;
+  let touchLastX = 0, touchLastY = 0;
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      isDragging = true;
+      touchLastX = e.touches[0].clientX; touchLastY = e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchStartDist = Math.hypot(dx, dy);
+    }
+  });
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1 && isDragging) {
+      const dx = e.touches[0].clientX - touchLastX;
+      const dy = e.touches[0].clientY - touchLastY;
+      cameraTheta -= dx * 0.005;
+      cameraPhi = Math.max(0.1, Math.min(Math.PI*0.49, cameraPhi - dy * 0.005));
+      updateCameraPosition();
+      touchLastX = e.touches[0].clientX; touchLastY = e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const delta = touchStartDist - dist;
+      cameraRadius = Math.max(20, Math.min(150, cameraRadius + delta * 0.1));
+      updateCameraPosition();
+      touchStartDist = dist;
+    }
+  }, { passive: false });
+  canvas.addEventListener('touchend', () => { isDragging = false; });
+}
+
+function setupLabels() {
+  forestMarker = new THREE.Vector3(13, 5, 0);
+  bareMarker = new THREE.Vector3(-13, 5, 0);
+}
+
+function updateLabels() {
+  const fEl = document.getElementById('forestLabel');
+  const bEl = document.getElementById('bareLabel');
+  [[forestMarker, fEl], [bareMarker, bEl]].forEach(([pos, el]) => {
+    const p = pos.clone();
+    p.project(camera);
+    if (p.z > 1) { el.style.opacity = 0; return; }
+    const x = (p.x + 1) * window.innerWidth / 2;
+    const y = (-p.y + 1) * window.innerHeight / 2;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.opacity = 1;
+  });
+}
+
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+let lastTime = performance.now();
+function animate() {
+  animId = requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = Math.min(0.05, (now - lastTime)/1000);
+  lastTime = now;
+
+  cloudGroup.children.forEach(cloud => {
+    cloud.position.x += cloud.userData.driftSpeed;
+    if (cloud.position.x > 60) cloud.position.x = -60;
+  });
+
+  if (Math.random() < 0.3) spawnVapor();
+  if (Math.random() < 0.4) spawnCO2();
+  if (Math.random() < 0.3) spawnAlbedo();
+  updateParticles(dt);
+
+  updateLabels();
+  renderer.render(scene, camera);
+}
+
+function applyDeforestation() {
+  const vis = Math.round(trees.length * (1 - deforest));
+  trees.forEach((t, i) => {
+    if (i < vis) {
+      t.mesh.scale.setScalar(t.baseScale);
+      t.mesh.visible = true;
+    } else {
+      const fade = Math.max(0, 1 - (i - vis) * 0.15);
+      t.mesh.scale.setScalar(t.baseScale * fade);
+      t.mesh.visible = fade > 0.05;
+    }
+  });
+  stumps.forEach((s, i) => {
+    const t = Math.min(1, deforest * 1.4 - i*0.005);
+    s.mesh.scale.setScalar(Math.max(0, t));
+  });
+
+  if (bareGroup.userData.patch) {
+    bareGroup.userData.patch.material.opacity = Math.min(0.85, deforest * 1.0);
+  }
+}
+
+function updateClimate() {
+  const d = deforest;
+  const s = sunIntensity;
+
+  const T_forest = BASE.T + d*1.5 + (s-1)*8;
+  const T_bare = BASE.T + 4 + d*4 + (s-1)*12;
+  const avgT = T_forest*(1-d) + T_bare*d;
+  const rainfall = 100 - d*55;
+  const carbon = 100 - d*70;
+  const biodiv = 100 - d*80;
+  const eR = 12 + d*13;
+  const eE = 55 - d*35;
+  const eS = 25 + d*15;
+  const eSt = 8 + d*7;
+
+  document.getElementById('forestTemp').textContent = T_forest.toFixed(1)+'°C';
+  document.getElementById('bareTemp').textContent = T_bare.toFixed(1)+'°C';
+
+  document.getElementById('avgTemp').textContent = avgT.toFixed(1);
+  document.getElementById('rainfall').textContent = Math.round(rainfall);
+  document.getElementById('carbon').textContent = Math.round(carbon);
+  document.getElementById('biodiv').textContent = Math.round(biodiv);
+
+  const dT = avgT - BASE.T;
+  setDelta('dTemp', dT, '°', 'temp');
+  setDelta('dRain', rainfall - 100, '%', 'inverse');
+  setDelta('dCarbon', carbon - 100, '%', 'inverse');
+  setDelta('dBio', biodiv - 100, '%', 'inverse');
+
+  document.getElementById('eR').style.flex = eR;
+  document.getElementById('eE').style.flex = eE;
+  document.getElementById('eS').style.flex = eS;
+  document.getElementById('eSt').style.flex = eSt;
+  document.getElementById('eRv').textContent = Math.round(eR)+'%';
+  document.getElementById('eEv').textContent = Math.round(eE)+'%';
+  document.getElementById('eSv').textContent = Math.round(eS)+'%';
+  document.getElementById('eStv').textContent = Math.round(eSt)+'%';
+
+  if (sunLight) sunLight.intensity = 0.7 + s*0.5;
+  if (ambientLight) ambientLight.intensity = 0.4 + s*0.2;
+  if (sunMesh) {
+    sunMesh.scale.setScalar(0.7 + s*0.4);
+    sunMesh.userData.glow.scale.setScalar(0.6 + s*0.5);
+  }
+
+  applyDeforestation();
+}
+
+function setDelta(id, val, unit, kind) {
+  const el = document.getElementById(id);
+  const sign = val >= 0 ? '+' : '';
+  el.textContent = sign + val.toFixed(unit==='°' ? 1 : 0) + unit;
+  el.classList.remove('up','down','zero');
+  if (Math.abs(val) < 0.5) el.classList.add('zero');
+  else if (kind === 'inverse') el.classList.add(val < 0 ? 'up' : 'down');
+  else el.classList.add(val > 0 ? 'up' : 'down');
+}
+
+function setLanguage(l) {
+  lang = l;
+  document.documentElement.lang = l;
+  document.querySelectorAll('[data-id]').forEach(el => {
+    el.textContent = el.dataset[l];
+  });
+  document.querySelectorAll('[data-id-html]').forEach(el => {
+    el.innerHTML = el.dataset[l + 'Html'];
+  });
+  document.getElementById('langID').classList.toggle('active', l === 'id');
+  document.getElementById('langEN').classList.toggle('active', l === 'en');
+}
+
+document.getElementById('langID').addEventListener('click', () => setLanguage('id'));
+document.getElementById('langEN').addEventListener('click', () => setLanguage('en'));
+
+document.getElementById('def').addEventListener('input', (e) => {
+  deforest = +e.target.value / 100;
+  document.getElementById('defVal').textContent = e.target.value + '%';
+  updateClimate();
+});
+document.getElementById('sun').addEventListener('input', (e) => {
+  sunIntensity = +e.target.value / 100;
+  document.getElementById('sunVal').textContent = e.target.value + '%';
+  updateClimate();
+});
+
+document.querySelectorAll('#modeSeg button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#modeSeg button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    mode = b.dataset.mode;
+  });
+});
+
+function animateTo(target, dur=2000) {
+  const start = deforest * 100;
+  const t0 = performance.now();
+  function step(t) {
+    const k = Math.min(1, (t - t0)/dur);
+    const eased = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;
+    const v = start + (target - start)*eased;
+    document.getElementById('def').value = v;
+    deforest = v / 100;
+    document.getElementById('defVal').textContent = Math.round(v) + '%';
+    updateClimate();
+    if (k < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+document.getElementById('scnPristine').addEventListener('click', () => animateTo(0));
+document.getElementById('scnDeforest').addEventListener('click', () => animateTo(80));
+document.getElementById('resetCam').addEventListener('click', () => {
+  cameraTheta = DEFAULT_CAM.theta;
+  cameraPhi = DEFAULT_CAM.phi;
+  cameraRadius = DEFAULT_CAM.radius;
+  cameraTarget.set(0, 0, 0);
+  updateCameraPosition();
+});
+
+if (typeof THREE === 'undefined') {
+  document.getElementById('loading').innerHTML =
+    '<p style="color:var(--hot)">Three.js failed to load. Check internet connection.</p>';
+} else {
+  init();
+  updateClimate();
+}
+</script>
+</body>
+</html>
